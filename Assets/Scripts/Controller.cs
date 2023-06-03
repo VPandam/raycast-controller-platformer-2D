@@ -1,8 +1,7 @@
 using UnityEngine;
 
 [RequireComponent(typeof(BoxCollider2D))]
-public class Controller : MonoBehaviour
-{
+public class Controller : MonoBehaviour {
     BoxCollider2D playerCollider;
 
     //Position of the corners of our collider.
@@ -15,31 +14,67 @@ public class Controller : MonoBehaviour
     [SerializeField] int horizontalRayCount = 4;
     [SerializeField] int verticalRayCount = 4;
 
+
     //Space between rays, changes depending of the number of rays.
     float horizontalRaySpacing, verticalRaySpacing;
-    void Start()
-    {
+
+    [SerializeField] LayerMask obstacleLayer;
+    void Start() {
         playerCollider = GetComponent<BoxCollider2D>();
-    }
-
-    private void Update()
-    {
-        UpdateRaycastOrigins();
         CalculateRaySpacing();
+        Application.targetFrameRate = 60;
+    }
 
-        for (int i = 0; i < horizontalRayCount; i++)
-        {
-            Debug.DrawRay(raycastOrigins.bottomRight + Vector2.up * horizontalRaySpacing * i, Vector2.right * 2, Color.red);
-        }
-        for (int i = 0; i < verticalRayCount; i++)
-        {
-            Debug.DrawRay(raycastOrigins.bottomLeft + Vector2.right * verticalRaySpacing * i, Vector2.down * 2, Color.red);
-        }
+    private void Update() {
+
 
     }
 
-    void UpdateRaycastOrigins()
-    {
+    public void Move(Vector3 velocity) {
+
+        UpdateRaycastOrigins();
+        if (velocity.x != 0)
+            HorizontalCollisions(ref velocity);
+        if (velocity.y != 0)
+            VerticalCollisions(ref velocity);
+
+        transform.Translate(velocity);
+    }
+
+    void HorizontalCollisions(ref Vector3 velocity) {
+        float directionX = Mathf.Sign(velocity.x);
+        float rayLength = Mathf.Abs(velocity.x) + skinWidth;
+        for (int i = 0; i < verticalRayCount; i++) {
+            Vector2 rayOrigin = (directionX == -1) ? raycastOrigins.bottomLeft : raycastOrigins.bottomRight;
+            rayOrigin += Vector2.up * (horizontalRaySpacing * i);
+            RaycastHit2D hit = Physics2D.Raycast(rayOrigin, Vector2.right * directionX, rayLength, obstacleLayer);
+
+            Debug.DrawRay(rayOrigin, Vector2.right * directionX * rayLength, Color.red);
+            if (hit) {
+                Debug.Log(velocity);
+                velocity.x = (hit.distance - skinWidth) * directionX;
+                rayLength = hit.distance;
+            }
+        }
+    }
+    void VerticalCollisions(ref Vector3 velocity) {
+        float directionY = Mathf.Sign(velocity.y);
+        float rayLength = Mathf.Abs(velocity.y) + skinWidth;
+
+        for (int i = 0; i < verticalRayCount; i++) {
+            Vector2 rayOrigin = (directionY == -1) ? raycastOrigins.bottomLeft : raycastOrigins.topLeft;
+            rayOrigin += Vector2.right * (verticalRaySpacing * i + velocity.x);
+            RaycastHit2D hit = Physics2D.Raycast(rayOrigin, Vector2.up * directionY, rayLength, obstacleLayer);
+
+            if (hit) {
+                velocity.y = (hit.distance - skinWidth) * directionY;
+                rayLength = hit.distance;
+            }
+        }
+    }
+
+    //Get the position of the corners of our player.
+    void UpdateRaycastOrigins() {
         Bounds bounds = playerCollider.bounds;
         bounds.Expand(skinWidth * -2);
 
@@ -49,8 +84,8 @@ public class Controller : MonoBehaviour
         raycastOrigins.bottomRight = new Vector2(bounds.max.x, bounds.min.y);
     }
 
-    void CalculateRaySpacing()
-    {
+    //Calculate the spacing between rays.
+    void CalculateRaySpacing() {
         Bounds bounds = playerCollider.bounds;
         bounds.Expand(skinWidth * -2);
 
@@ -62,8 +97,7 @@ public class Controller : MonoBehaviour
         verticalRaySpacing = bounds.size.y / (verticalRayCount - 1);
     }
 
-    struct RaycastOrigins
-    {
+    struct RaycastOrigins {
         public Vector2 topLeft, topRight, bottomLeft, bottomRight;
     }
 
